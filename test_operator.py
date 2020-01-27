@@ -12,29 +12,35 @@ sys.modules['addon_utils'] = mock.MagicMock()
 
 from cis_render import config
 
+class MockScene:
+    def __init__(self, name):
+        self.name = name
+
 def timeout_callback(request, uri, headers):
     raise requests.exceptions.ConnectTimeout('Connection timeout')
 
 @pytest.fixture
-def job_operator():
+def request_manager():
     '''
     '''
-    bpy = mock.MagicMock()
-    bpy.types = mock.MagicMock()
-    bpy.types.Operator = mock.MagicMock()
 
     from cis_render.read_scene_settings import RequestManager
-    # from request1.request1 import OBJECT_OT_read_scene_settings
-    # with FixturePatcher(OBJECT_OT_read_scene_settings):
     return RequestManager()
 
-def test_send_POST(job_operator):
+@pytest.fixture
+def job_data_reader():
+    '''
+    '''
+
+    from cis_render.read_scene_settings import JobDataReader
+    return JobDataReader(MockScene("test_scene"), images=[])
+
+def test_send_POST(request_manager):
     '''
     '''
     httpretty.enable()
 
     _server = "%s" % (config.server)
-    # _server = 'http://localhost:5000/job'
     
     _data = {
         "textures":[
@@ -83,12 +89,12 @@ def test_send_POST(job_operator):
 
     # Fail tests
     with pytest.raises(requests.exceptions.RequestException):
-        job_operator.post_job_data(_data)
+        request_manager.post_job_data(_data)
     with pytest.raises(requests.exceptions.RequestException):
-        job_operator.post_job_data(_data)
+        request_manager.post_job_data(_data)
 
     # Success tests
-    assert job_operator.post_job_data(_data).text == 'Created'
+    assert request_manager.post_job_data(_data).text == 'Created'
     assert httpretty.last_request().method == 'POST'
     assert httpretty.last_request().headers['content-type'] == 'application/json'
     assert json.loads(httpretty.last_request().body) == _data
@@ -96,5 +102,26 @@ def test_send_POST(job_operator):
     httpretty.disable()
 
 
-# def testimport():
-#     from cis_render.read_scene_settings import OBJECT_OT_read_scene_settings
+def test_reading_scene_data(job_data_reader):
+    with mock.patch('cis_render.read_scene_settings.bpy') as MockBpy:
+        # path = bpy.path.abspath(bpy.data.filepath)
+        # MockBpy.return_value.data.filepath = 'test_path'
+        
+        mock_path ='test_abs_path'
+        empty_path = ''
+        no_path = None
+
+        MockBpy.path.abspath.return_value = mock_path
+        test_scene_file_data = {                 
+            "name": job_data_reader.scene.name,
+            "full_path": mock_path
+        }
+
+        assert job_data_reader.get_scene_data() == test_scene_file_data
+
+        MockBpy.path.abspath.return_value = empty_path
+        with pytest.raises(FileNotFoundError):
+            assert job_data_reader.get_scene_data() == empty_path
+
+
+

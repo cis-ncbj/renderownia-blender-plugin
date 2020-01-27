@@ -412,18 +412,14 @@ class JobDataReader:
         :return: słownik z danymi zadania
         :rtype: dict
         """
-        try:
-            return self.prepare_payload(
-                    self.get_job_name(), self.get_job_frames(), 
-                    False, self.get_job_tiles_info(), 
-                    self.get_job_file_format(), self.get_job_priority()
-                    )
-        except (ValueError, FileNotFoundError):
-            self.report({'ERROR'}, "Could not register job")
-            config.logger.error("Could not register job", exc_info=True)
-            return {"CANCELLED"}
+        return self.prepare_payload(
+                self.get_scene_data(),
+                self.get_job_name(), self.get_job_frames(), 
+                False, self.get_job_tiles_info(), 
+                self.get_job_file_format(), self.get_job_priority()
+                )
 
-    def prepare_payload(self, job_name="New Job", frames=None, anim_prepass=False, tiles_info=None,
+    def prepare_payload(self, scene_data=None, job_name="New Job", frames=None, anim_prepass=False, tiles_info=None,
         output_format="JPEG", priority=0, sanity_check=False):
         """Przyjmuje jako argumenty komplet danych zadania i zwraca je zapisane w słowniku.
         Struktura słownika jest analogiczna do struktury sobiektu JSON, którego oczekuje RenderDock.
@@ -445,18 +441,33 @@ class JobDataReader:
         :return: słownik z danymi zadania
         :rtype: dict
         """
+        try:
+            data = dict(
+                textures = self.images,
+                scene = scene_data,
+                name = job_name,
+                frames = frames,
+                anim_prepass = anim_prepass,
+                output_format = output_format,
+                priority = priority,
+                sanity_check = sanity_check
+            )
+            return data
 
-        data = dict(
-            textures = self.images,
-            scene = self.get_scene_data(),
-            name = job_name,
-            frames = frames,
-            anim_prepass = anim_prepass,
-            output_format = output_format,
-            priority = priority,
-            sanity_check = sanity_check
-        )
-        return data
+        except ValueError as error:
+            self.report({'ERROR_INVALID_INPUT'}, "{} \nCould not register job".format(error))
+            config.logger.error("Could not register job", exc_info=True)
+            return {"CANCELLED"}
+
+        except FileNotFoundError as error:
+            self.report({'ERROR'}, "{} \nCould not register job".format(error))
+            config.logger.error("Could not register job", exc_info=True)
+            return {"CANCELLED"}
+
+        except Exception:
+            self.report({'ERROR'}, "Could not register job")
+            config.logger.error("Could not register job", exc_info=True)
+            return {"CANCELLED"}
 
 
     def get_scene_data(self):
@@ -467,21 +478,17 @@ class JobDataReader:
         :rtype: dict
         """
         path = bpy.path.abspath(bpy.data.filepath)
+        print(path)
 
-        try:
-            if path in [None, '']:
-                raise FileNotFoundError("Scene file not found. Did you forget to save it?")
+        if path in [None, '']:
+            raise FileNotFoundError("Scene file not found. Did you forget to save it?")
 
-            scene_file_data = {                 # temporary
-                "name": self.scene.name,
-                "full_path": bpy.path.abspath(bpy.data.filepath)
-            } 
+        scene_file_data = {                 
+            "name": self.scene.name,
+            "full_path": path
+        } 
 
-            return scene_file_data
-            
-        except FileNotFoundError as error:
-            self.report({'ERROR'}, str(error))
-            config.logger.error("Scene file not found", exc_info=True)
+        return scene_file_data
 
 
     def get_job_tiles_info(self):
@@ -557,16 +564,11 @@ class JobDataReader:
         :return: Nazwa zadania
         :rtype: str
         """
-        try:
-            job_name = self.scene.my_tool.job_name
+    
+        job_name = self.scene.my_tool.job_name
 
-            if job_name in [None, '']:
-                raise ValueError("Job name is empty")
-
-        except ValueError as error:
-            self.report({'ERROR_INVALID_INPUT'}, str(error))
-            config.logger.error(error, exc_info=True)
-            raise ValueError(error)
+        if job_name in [None, '']:
+            raise ValueError("Job name is empty")
 
         return job_name
             
@@ -579,15 +581,10 @@ class JobDataReader:
         :rtype: int
         """
 
-        try:
-            priority = self.scene.my_tool.priority
+        priority = self.scene.my_tool.priority
 
-            if priority is None:
-                raise ValueError("Priority not set")
-
-        except ValueError as error:
-            self.report({'ERROR_INVALID_INPUT'}, str(error))
-            config.logger.error(str(error), exc_info=True)
+        if priority is None:
+            raise ValueError("Priority not set")
 
         return priority
 
