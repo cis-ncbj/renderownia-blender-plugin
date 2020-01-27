@@ -16,55 +16,6 @@ from bpy.types import (Panel,
                        PropertyGroup,
                        )
 
-class TOPBAR_MT_CISRender_submenu(bpy.types.Menu):
-    """Podmenu renderowania dodawane do menu wtyczki w górnej belce.
-
-    :param bl_label: Nazwa podmenu wyświetlana w GUI
-    :type bl_label: str
-    """
-
-    bl_label = "Render"
-
-    def draw(self, context):
-        """Rysuje podmenu. Dodaje opcję wyboru z podmenu operatora wtyczki.
-
-        :param context: Kontekst aktualnej sceny
-        :type context: bpy.types.Context
-        """
-
-        layout = self.layout
-        layout.operator_context = 'INVOKE_DEFAULT'
-        layout.operator("object.read_scene_settings")
-
-
-class TOPBAR_MT_CISRender_menu(bpy.types.Menu):
-    """Menu wtyczki dodawane do górnej belki.
-
-    :param bl_label: Nazwa menu wyświetlana w GUI
-    :type bl_label: str
-    """
-
-    bl_label = "CIS Render"
-
-    def draw(self, context):
-        """Rysuje menu. Dodaje do niego podmenu renderowania.
-
-        :param context: Kontekst aktualnej sceny
-        :type context: bpy.types.Context
-        """
-
-        layout = self.layout
-        layout.menu("TOPBAR_MT_CISRender_submenu")
-
-    def menu_draw(self, context):
-        """Dodaje menu do GUI. Wywoływana po rejestracji klasy przy dodawaniu menu do listy istniejących.
-
-        :param context: Kontekst aktualnej sceny
-        :type context: bpy.types.Context
-        """
-        self.layout.menu("TOPBAR_MT_CISRender_menu")
-
-
 class JobProperties(PropertyGroup):
     """Grupa własności wtyczki. Nazwa i priorytet zadania muszą być wprowadzone w panelu wtyczki..
     Zakres klatek, format plików wyjściowych i wymiary kafelków domyślnie są takie same, jak
@@ -171,7 +122,6 @@ class JobProperties(PropertyGroup):
         description="Horizontal tile size to use while rendering",
         default = 64,
         min = 0
-        # but how much should it be?
         )
 
     tiles_y : IntProperty(
@@ -179,8 +129,58 @@ class JobProperties(PropertyGroup):
         description="Vertical tile size to use while rendering",
         default = 64,
         min = 0
-        # but how much should it be?
         )
+
+
+
+class TOPBAR_MT_CISRender_submenu(bpy.types.Menu):
+    """Podmenu renderowania dodawane do menu wtyczki w górnej belce.
+
+    :param bl_label: Nazwa podmenu wyświetlana w GUI
+    :type bl_label: str
+    """
+
+    bl_label = "Render"
+
+    def draw(self, context):
+        """Rysuje podmenu. Dodaje opcję wyboru z podmenu operatora wtyczki.
+
+        :param context: Kontekst aktualnej sceny
+        :type context: bpy.types.Context
+        """
+
+        layout = self.layout
+        layout.operator_context = 'INVOKE_DEFAULT'
+        layout.operator("object.read_scene_settings")
+
+
+class TOPBAR_MT_CISRender_menu(bpy.types.Menu):
+    """Menu wtyczki dodawane do górnej belki.
+
+    :param bl_label: Nazwa menu wyświetlana w GUI
+    :type bl_label: str
+    """
+
+    bl_label = "CIS Render"
+
+    def draw(self, context):
+        """Rysuje menu. Dodaje do niego podmenu renderowania.
+
+        :param context: Kontekst aktualnej sceny
+        :type context: bpy.types.Context
+        """
+
+        layout = self.layout
+        layout.menu("TOPBAR_MT_CISRender_submenu")
+
+    def menu_draw(self, context):
+        """Dodaje menu do GUI. Wywoływana po rejestracji klasy przy dodawaniu menu do listy istniejących.
+
+        :param context: Kontekst aktualnej sceny
+        :type context: bpy.types.Context
+        """
+        self.layout.menu("TOPBAR_MT_CISRender_menu")
+
     
 class JOBDATA_PT_job_name(bpy.types.Panel):
     bl_label = "Job Data"

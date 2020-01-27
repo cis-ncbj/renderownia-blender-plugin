@@ -14,7 +14,7 @@ from . import read_scene_settings
 from . import ui
 from . import config
 
-from . read_scene_settings import ( OBJECT_OT_read_scene_settings  )
+from . read_scene_settings import ( OBJECT_OT_read_scene_settings, RequestManager )
 
 from . ui import ( TOPBAR_MT_CISRender_submenu,
                    TOPBAR_MT_CISRender_menu,

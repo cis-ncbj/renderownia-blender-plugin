@@ -71,8 +71,15 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         self.read_workbench()
         self.save_as_json()
 
+        self.request_manager = RequestManager()
+        self.frame_reader = FrameReader()
+
         try:
-            self.post_job_data(self.prepare_payload(self.get_job_name(), self.get_job_frames(), False, self.get_job_tiles_info()))
+            self.request_manager.post_job_data(self.prepare_payload(self.get_job_name(), self.frame_reader.get_job_frames(self.scene), False, self.get_job_tiles_info()))
+        except requests.exceptions.RequestException as error:
+            self.report({'ERROR'}, str(error))
+            config.logger.error(str(error), exc_info=True)
+            raise
         except (ValueError, FileNotFoundError):
             self.report({'ERROR'}, "Could not register job")
             config.logger.error("Could not register job", exc_info=True)
@@ -404,26 +411,6 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         #     data['tile_job']=False
         return data
 
-    
-    def post_job_data(self, payload):
-        """Wysyła dane zadania w formacie JSON RenderDockowi, uruchamiając proces rejestracji zadania.
-        
-        :param payload: słownik z danymi zadania przeznaczonymi do wysłania RenderDockowi
-        :type payload: dict
-        :raises: RequestException: TODO
-        :return: TODO
-        :rtype: TODO
-        """
-        print(json.dumps(payload))
-        headers = {'content-type': 'application/json'}
-
-        try:
-            r = requests.post(config.server, data=json.dumps(payload), headers=headers)
-            print(r.text)
-        except requests.exceptions.RequestException as error:
-            self.report({'ERROR'}, str(error))
-            config.logger.error(str(error), exc_info=True)
-
 
     def get_scene_data(self):
         """Zwraca nazwę sceny i bezwzględną ścieżkę do pliku sceny. 
@@ -501,29 +488,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         return tile_info
  
 
-    def get_job_frames(self):
-        """Zwraca słownik zawierający numer pierwszej i ostatniej klatki 
-        zakresu przeznaczonego do wyrenderowania podczas zadania. 
-        Zależnie od ustawienia wybranego przez użytkownika, metoda odczytuje i zwraca
-        numery skrajnych klatek przypisane do sceny albo podane dla zadania.
-        
-        :return: słownik zawierający numery skajnych klatek zakresu
-        :rtype: dict
-        """
 
-        if self.scene.my_tool.use_output_frames_setting: 
-            frames = dict(
-            start = bpy.data.scenes[self.scene.name].frame_start,
-            end = bpy.data.scenes[self.scene.name].frame_end
-            )
-
-        else:
-            frames = dict(
-            start = self.scene.my_tool.frame_start,
-            end = self.scene.my_tool.frame_end
-            )
-            
-        return frames
 
     def get_job_file_format(self):
         """Zwraca format plików wyjściowych, które mają być wygenerowane w wyniku renderowania. 
@@ -581,3 +546,61 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             config.logger.error(str(error), exc_info=True)
 
         return priority
+
+
+class RequestManager():
+
+    def post_job_data(self, payload):
+        """Wysyła dane zadania w formacie JSON RenderDockowi, uruchamiając proces rejestracji zadania.
+        
+        :param payload: słownik z danymi zadania przeznaczonymi do wysłania RenderDockowi
+        :type payload: dict
+        :raises: RequestException: TODO
+        :return: TODO
+        :rtype: TODO
+        """
+        headers = {'content-type': 'application/json'}
+
+        # try:
+        #     r = requests.post(config.server, data=json.dumps(payload), headers=headers)
+        #     print(r.text)
+        #     return r
+        # except requests.exceptions.RequestException as error:
+        #     self.report({'ERROR'}, str(error))
+        #     config.logger.error(str(error), exc_info=True)
+        #     raise
+        
+        print(json.dumps(payload))
+        r = requests.post(config.server, data=json.dumps(payload), headers=headers)
+
+        # if str(status).startswith('5'):
+        print(r.text)
+        print('MANAGER')
+        return r.text
+
+class FrameReader():
+    def get_job_frames(self, scene):
+        """Zwraca słownik zawierający numer pierwszej i ostatniej klatki 
+        zakresu przeznaczonego do wyrenderowania podczas zadania. 
+        Zależnie od ustawienia wybranego przez użytkownika, metoda odczytuje i zwraca
+        numery skrajnych klatek przypisane do sceny albo podane dla zadania.
+        
+        :return: słownik zawierający numery skajnych klatek zakresu
+        :rtype: dict
+        """
+        
+        if scene.my_tool.use_output_frames_setting: 
+            frames = dict(
+            start = bpy.data.scenes[scene.name].frame_start,
+            end = bpy.data.scenes[scene.name].frame_end
+            )
+
+        else:
+            frames = dict(
+            start = scene.my_tool.frame_start,
+            end = scene.my_tool.frame_end
+            )
+
+        print(frames)
+            
+        return frames
