@@ -61,12 +61,13 @@ class JobProperties(PropertyGroup):
     priority : EnumProperty(
         name="Priority",
         description="Job's priority",
-        items=[ ('PR0', "priority0", "priority0"),
-                ('PR1', "priority1", "priority1"),
-                ('PR2', "priority2", "priority2"),
-                ('PR3', "priority3", "priority3")
-        ]
+        items=[ ('0', "0 - Standard", "Priorytet Standard"),
+                ('1', "1 - Business", "Priorytet Business"),
+                ('2', "2 - Premium", "Priorytet Premium")
+        ],
+        default='0'
         )
+
 
     use_output_frames_setting : BoolProperty(
         name="Use scene's settings",
@@ -103,25 +104,15 @@ class JobProperties(PropertyGroup):
     file_format: EnumProperty(
         name="File Format",
         description="File format of rendered images",
-        items=[ ('BPM', "BPM", "BPM image format", "FILE_IMAGE", 0),
-                ('IRIS', "Iris", "Iris image format", "FILE_IMAGE", 1),
-                ('PNG', "PNG", "PNG image format", "FILE_IMAGE", 2),
-                ('JPEG', "JPEG", "JPEG image format", "FILE_IMAGE", 3),
-                ('JPEG_2000', "JPEG 2000", "JPEG 2000 image format", "FILE_IMAGE", 4),
-                ('TARGA', "Targa", "Targa image format", "FILE_IMAGE", 5),
-                ('TARGA_RAW', "Targa Raw", "Targa Raw image format", "FILE_IMAGE", 6),
-
-                ('CINEON', "Cineon", "Cineon image format", "FILE_IMAGE", 7),
-                ('DPX', "DPX", "DPX image format", "FILE_IMAGE", 8),
-                ('OPENEXR_MULTILAYER', "OpenEXR MultiLayer", "OpenEXR MultiLayer image format", "FILE_IMAGE", 9),
-                ('OPENEXR', "OpenEXR", "OpenEXR image format", "FILE_IMAGE", 10),
-                ('RADIANCE_HDR', "Radiance HDR", "Radiance HDR image format", "FILE_IMAGE", 11),
-                ('TIFF', "TIFF", "TIFF image format", "FILE_IMAGE", 12),
-
-                ('AVI_JPEG', "AVI JPEG", "AVI JPEG movie format", "FILE_MOVIE", 13),
-                ('AVI_RAW', "AVI Raw", "AVI Raw movie format", "FILE_MOVIE", 14),
-                ('FFMPEG_VIDEO', "FFmpeg video", "FFmpeg video movie format", "FILE_MOVIE", 15),
-                ]
+        items=[
+                ('HDR', "HDR", "HDR image format", "FILE_IMAGE", 0),
+                ('TIFF', "TIFF", "TIFF image format", "FILE_IMAGE", 1),
+                ('JPEG', "JPEG", "JPEG image format", "FILE_IMAGE", 2),
+                ('PNG', "PNG", "PNG image format", "FILE_IMAGE", 3),
+                ('EXR', "EXR", "EXR movie format", "FILE_MOVIE", 4),
+                ('TGA', "TGA", "TGA image format", "FILE_IMAGE", 5),
+        ],
+        default='PNG'
         )
  
 
