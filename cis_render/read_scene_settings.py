@@ -72,24 +72,15 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         self.save_as_json()
 
         self.request_manager = RequestManager()
-        self.frame_reader = FrameReader()
+        self.job_data_reader = JobDataReader(self.scene, self.images)
 
         try:
-
-            self.request_manager.post_job_data(
-                self.prepare_payload(
-                    self.get_job_name(), self.frame_reader.get_job_frames(self.scene), 
-                    False, self.get_job_tiles_info(), 
-                    self.get_job_file_format(), self.get_job_priority()))
+            self.request_manager.post_job_data(self.job_data_reader.get_payload())
 
         except requests.exceptions.RequestException as error:
             self.report({'ERROR'}, str(error))
             config.logger.error(str(error), exc_info=True)
             raise
-        except (ValueError, FileNotFoundError):
-            self.report({'ERROR'}, "Could not register job")
-            config.logger.error("Could not register job", exc_info=True)
-            return {"CANCELLED"}
         return {"FINISHED"}
 
 
@@ -328,7 +319,6 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
                     try:
                         abspath = bpy.path.abspath(image.filepath)
                         if path.exists(abspath):
-                            print(abspath)
                             if image.packed_file is None:
                                 image_data = dict(
                                     name = image.name,
@@ -378,6 +368,61 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             config.logger.error("Can't save to {} file".format(self.result_filename), exc_info=True)
 
 
+class RequestManager():
+    """
+    Odpowiada za komunikację z RenderDockiem.
+    """
+
+    def post_job_data(self, payload):
+        """Wysyła dane zadania w formacie JSON RenderDockowi, uruchamiając proces rejestracji zadania.
+        
+        :param payload: słownik z danymi zadania przeznaczonymi do wysłania RenderDockowi
+        :type payload: dict
+        :raises: RequestException: TODO
+        :return: TODO
+        :rtype: TODO
+        """
+        headers = {'content-type': 'application/json'}
+        
+        print(json.dumps(payload))
+        r = requests.post(config.server, data=json.dumps(payload), headers=headers)
+        
+        if str(r.status_code).startswith('5'):
+            raise requests.exceptions.RequestException
+
+        print(r.text)
+        return r
+
+
+class JobDataReader:
+    """
+    Klasa przeznaczona do przygotowywania danych do rejestracji zadania.
+    """
+
+    def __init__(self, scene, images):
+        """Kontruktor klasy czytającej dane do wysłania.
+        """
+        self.scene = scene
+        self.images = images
+
+    def get_payload(self):
+        """
+        Zwraca gotowe dane do wysłania.
+
+        :return: słownik z danymi zadania
+        :rtype: dict
+        """
+        try:
+            return self.prepare_payload(
+                    self.get_job_name(), self.get_job_frames(), 
+                    False, self.get_job_tiles_info(), 
+                    self.get_job_file_format(), self.get_job_priority()
+                    )
+        except (ValueError, FileNotFoundError):
+            self.report({'ERROR'}, "Could not register job")
+            config.logger.error("Could not register job", exc_info=True)
+            return {"CANCELLED"}
+
     def prepare_payload(self, job_name="New Job", frames=None, anim_prepass=False, tiles_info=None,
         output_format="JPEG", priority=0, sanity_check=False):
         """Przyjmuje jako argumenty komplet danych zadania i zwraca je zapisane w słowniku.
@@ -411,10 +456,6 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             priority = priority,
             sanity_check = sanity_check
         )
-        # if tiles_info:
-        #     data.update(self.get_job_tiles_info())
-        # else:
-        #     data['tile_job']=False
         return data
 
 
@@ -442,7 +483,6 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             self.report({'ERROR'}, str(error))
             config.logger.error("Scene file not found", exc_info=True)
 
-        
 
     def get_job_tiles_info(self):
         """Zwraca informacje o ustawieniach kafelków.
@@ -493,8 +533,6 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
 
         return tile_info
  
-
-
 
     def get_job_file_format(self):
         """Zwraca format plików wyjściowych, które mają być wygenerowane w wyniku renderowania. 
@@ -551,42 +589,10 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             self.report({'ERROR_INVALID_INPUT'}, str(error))
             config.logger.error(str(error), exc_info=True)
 
-        print("PRIORITY {}".format(priority))
         return priority
 
 
-class RequestManager():
-
-    def post_job_data(self, payload):
-        """Wysyła dane zadania w formacie JSON RenderDockowi, uruchamiając proces rejestracji zadania.
-        
-        :param payload: słownik z danymi zadania przeznaczonymi do wysłania RenderDockowi
-        :type payload: dict
-        :raises: RequestException: TODO
-        :return: TODO
-        :rtype: TODO
-        """
-        headers = {'content-type': 'application/json'}
-
-        # try:
-        #     r = requests.post(config.server, data=json.dumps(payload), headers=headers)
-        #     print(r.text)
-        #     return r
-        # except requests.exceptions.RequestException as error:
-        #     self.report({'ERROR'}, str(error))
-        #     config.logger.error(str(error), exc_info=True)
-        #     raise
-        
-        print(json.dumps(payload))
-        r = requests.post(config.server, data=json.dumps(payload), headers=headers)
-
-        # if str(status).startswith('5'):
-        print(r.text)
-        print('MANAGER')
-        return r.text
-
-class FrameReader():
-    def get_job_frames(self, scene):
+    def get_job_frames(self):
         """Zwraca słownik zawierający numer pierwszej i ostatniej klatki 
         zakresu przeznaczonego do wyrenderowania podczas zadania. 
         Zależnie od ustawienia wybranego przez użytkownika, metoda odczytuje i zwraca
@@ -596,18 +602,16 @@ class FrameReader():
         :rtype: dict
         """
         
-        if scene.my_tool.use_output_frames_setting: 
+        if self.scene.my_tool.use_output_frames_setting: 
             frames = dict(
-            start = bpy.data.scenes[scene.name].frame_start,
-            end = bpy.data.scenes[scene.name].frame_end
+            start = bpy.data.scenes[self.scene.name].frame_start,
+            end = bpy.data.scenes[self.scene.name].frame_end
             )
 
         else:
             frames = dict(
-            start = scene.my_tool.frame_start,
-            end = scene.my_tool.frame_end
+            start = self.scene.my_tool.frame_start,
+            end = self.scene.my_tool.frame_end
             )
-
-        print(frames)
             
         return frames

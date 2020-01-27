@@ -10,31 +10,31 @@ sys.modules['bpy.props'] = mock.MagicMock()
 sys.modules['bpy.types'] = mock.MagicMock()
 sys.modules['addon_utils'] = mock.MagicMock()
 
-# from cis_render import config
+from cis_render import config
 
 def timeout_callback(request, uri, headers):
-    raise requests.exceptions.ConnectTimeout('Bad connection.')
+    raise requests.exceptions.ConnectTimeout('Connection timeout')
 
 @pytest.fixture
-def CISoperator():
+def job_operator():
     '''
     '''
     bpy = mock.MagicMock()
     bpy.types = mock.MagicMock()
     bpy.types.Operator = mock.MagicMock()
 
-    # from cis_render.read_scene_settings import OBJECT_OT_read_scene_settings
-    from request1.request1 import OBJECT_OT_read_scene_settings
-    with FixturePatcher(OBJECT_OT_read_scene_settings):
-        return OBJECT_OT_read_scene_settings()
+    from cis_render.read_scene_settings import RequestManager
+    # from request1.request1 import OBJECT_OT_read_scene_settings
+    # with FixturePatcher(OBJECT_OT_read_scene_settings):
+    return RequestManager()
 
-def test_send_POST(CISoperator):
+def test_send_POST(job_operator):
     '''
     '''
     httpretty.enable()
 
-    # _server = "%s" % (config.server)
-    _server = 'http://localhost:5000/job'
+    _server = "%s" % (config.server)
+    # _server = 'http://localhost:5000/job'
     
     _data = {
         "textures":[
@@ -77,18 +77,18 @@ def test_send_POST(CISoperator):
     httpretty.register_uri(httpretty.POST, _server,
             responses=[
                 httpretty.Response(body=timeout_callback, status=500),
-                # httpretty.Response(body='', status=500),
+                httpretty.Response(body='', status=500),
                 httpretty.Response(body='Created', status=200)
             ])
 
     # Fail tests
     with pytest.raises(requests.exceptions.RequestException):
-        CISoperator.post_job_data(_data)
-    # with pytest.raises(requests.exceptions.RequestException):
-    #     CISoperator.post_job_data(_data)
+        job_operator.post_job_data(_data)
+    with pytest.raises(requests.exceptions.RequestException):
+        job_operator.post_job_data(_data)
 
     # Success tests
-    assert CISoperator.post_job_data(_data) == 'Created'
+    assert job_operator.post_job_data(_data).text == 'Created'
     assert httpretty.last_request().method == 'POST'
     assert httpretty.last_request().headers['content-type'] == 'application/json'
     assert json.loads(httpretty.last_request().body) == _data
