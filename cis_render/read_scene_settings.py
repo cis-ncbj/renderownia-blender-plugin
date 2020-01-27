@@ -81,23 +81,19 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
                 self.get_job_file_format(), self.get_job_priority()
                 )
             self.request_manager.post_job_data(payload)
-
-        except requests.exceptions.RequestException as error:
-            self.report({'ERROR'}, str(error))
-            config.logger.error(str(error), exc_info=True)
         
         except ValueError as error:
             self.report({'ERROR_INVALID_INPUT'}, "{} \nCould not register job!".format(error))
             config.logger.error("Could not register job", exc_info=True)
             return {"CANCELLED"}
 
-        except FileNotFoundError as error:
-            self.report({'ERROR'}, "{} \nCould not register job".format(error))
-            config.logger.error("Could not register job", exc_info=True)
-            return {"CANCELLED"}
+        # except FileNotFoundError as error:
+        #     self.report({'ERROR'}, "{} \nCould not register job".format(error))
+        #     config.logger.error("Could not register job", exc_info=True)
+        #     return {"CANCELLED"}
 
-        except Exception:
-            self.report({'ERROR'}, "Could not register job")
+        except Exception as error:
+            self.report({'ERROR'}, "{} \nCould not register job".format(error))
             config.logger.error("Could not register job", exc_info=True)
             return {"CANCELLED"}
 
@@ -411,7 +407,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :return: słownik z danymi zadania
         :rtype: dict
         """
-
+        
         data = dict(
             textures = self.images,
             scene = scene_data,
@@ -433,6 +429,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :rtype: dict
         """
         path = bpy.path.abspath(bpy.data.filepath)
+        print(path)
 
         if path in [None, '']:
             raise FileNotFoundError("Scene file not found. Did you forget to save it?")
@@ -587,7 +584,12 @@ class RequestManager():
         headers = {'content-type': 'application/json'}
         
         print(json.dumps(payload))
-        r = requests.post(config.server, data=json.dumps(payload), headers=headers)
-        r.raise_for_status()
-        print(r.text)
+
+        try:
+            r = requests.post(config.server, data=json.dumps(payload), headers=headers)
+            r.raise_for_status()
+            print(r.text)
+        except requests.exceptions.RequestException as error:
+            config.logger.error(str(error), exc_info=True)
+            raise requests.exceptions.RequestException
         return r
