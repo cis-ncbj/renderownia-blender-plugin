@@ -411,7 +411,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :return: słownik z danymi zadania
         :rtype: dict
         """
-
+        
         data = dict(
             textures = self.images,
             scene = scene_data,
@@ -433,6 +433,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :rtype: dict
         """
         path = bpy.path.abspath(bpy.data.filepath)
+        print(path)
 
         if path in [None, '']:
             raise FileNotFoundError("Scene file not found. Did you forget to save it?")
