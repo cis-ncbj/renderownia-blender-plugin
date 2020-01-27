@@ -14,6 +14,8 @@ from . import read_scene_settings
 from . import ui
 from . import config
 
+from . properties import ( JobProperties )
+
 from . read_scene_settings import ( OBJECT_OT_read_scene_settings, RequestManager )
 
 from . ui import ( TOPBAR_MT_CISRender_submenu,
@@ -21,8 +23,7 @@ from . ui import ( TOPBAR_MT_CISRender_submenu,
                    JOBDATA_PT_job_name,
                    JOBDATA_PT_tiles,
                    JOBDATA_PT_frames,
-                   JOBDATA_PT_file_format,
-                   JobProperties
+                   JOBDATA_PT_file_format
                  )
 
 classes = (
