@@ -48,13 +48,24 @@ class JobProperties(PropertyGroup):
         default = 'New Job'
         )
 
-    priority : IntProperty(
-        name = "",
-        description="Higher number stands for higher priority",
-        default = 0,
-        min = 0,
-        max = 113
-        # but how much should it be?
+    # priority : IntProperty(
+    #     name = "",
+    #     description="Higher number stands for higher priority",
+    #     default = 0,
+    #     min = 0,
+    #     max = 113
+    #     # but how much should it be?
+    #     )
+
+    # TODO opisy
+    priority : EnumProperty(
+        name="Priority",
+        description="Job's priority",
+        items=[ ('PR0', "priority0", "priority0"),
+                ('PR1', "priority1", "priority1"),
+                ('PR2', "priority2", "priority2"),
+                ('PR3', "priority3", "priority3")
+        ]
         )
 
     use_output_frames_setting : BoolProperty(

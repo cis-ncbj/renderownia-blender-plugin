@@ -78,7 +78,7 @@ class JOBDATA_PT_job_name(bpy.types.Panel):
         mytool = scene.my_tool
         layout.prop(mytool, "job_name")
         row = layout.row()
-        row.label(text="Priority")
+        # row.label(text="Priority")
         row.prop(mytool, "priority")
 
 

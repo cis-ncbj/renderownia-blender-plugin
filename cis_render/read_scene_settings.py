@@ -75,7 +75,13 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         self.frame_reader = FrameReader()
 
         try:
-            self.request_manager.post_job_data(self.prepare_payload(self.get_job_name(), self.frame_reader.get_job_frames(self.scene), False, self.get_job_tiles_info()))
+
+            self.request_manager.post_job_data(
+                self.prepare_payload(
+                    self.get_job_name(), self.frame_reader.get_job_frames(self.scene), 
+                    False, self.get_job_tiles_info(), 
+                    self.get_job_file_format(), self.get_job_priority()))
+
         except requests.exceptions.RequestException as error:
             self.report({'ERROR'}, str(error))
             config.logger.error(str(error), exc_info=True)
@@ -503,7 +509,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             return bpy.data.scenes[self.scene.name].render.image_settings.file_format
 
         else:
-            return self.scene.my_tool.file_format
+            return self.scene.my_tool.file_format.lower()
 
     
     def get_job_name(self):
@@ -545,6 +551,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             self.report({'ERROR_INVALID_INPUT'}, str(error))
             config.logger.error(str(error), exc_info=True)
 
+        print("PRIORITY {}".format(priority))
         return priority
 
 
