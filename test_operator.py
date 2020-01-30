@@ -5,13 +5,9 @@ import httpretty
 import requests
 import json
 
-# W katalogu test mamy nasz minimalny moduł bpy. Dodajmy go do ścieżki PYTHONPATH
-sys.path.append('tests')
-# To na razie można spokojnie za-mockować
+sys.path.append('mock_bpy')
 sys.modules['addon_utils'] = mock.MagicMock()
-# Importujemy OBJECT_OT_read_scene_settings bo jego będziemy testować
 from cis_render import OBJECT_OT_read_scene_settings
-# Importujemy JobProperties żeby wyciągnąć z niego wartości domyślne
 from cis_render import JobProperties
 from cis_render import RequestManager
 from cis_render import config
@@ -20,17 +16,8 @@ def timeout_callback(request, uri, headers):
     raise requests.exceptions.ConnectTimeout('Connection timeout')
 
 def test_reading_frames_range():
-    # Powinny być zapisane jako annotations (nasza implementacja bpy.props zwraca od razu wartość domyślną)
-    # print(JobProperties.__annotations__)
-    # Generujemy instację obiektu do testu
     o = OBJECT_OT_read_scene_settings()
-    # Mockujemy o.scene żeby zawierało my_tool z odpowiednimi wartościami properties
     with mock.patch.object(o, 'scene') as mock_scene:
-        # Dla każdego property ustawiamy atrybut o.scene.my_tool na odpowiednią domyślną wartość (uwaga Enum nie jest zaimplementowany)
-        for k,v in JobProperties.__annotations__.items():
-            setattr(mock_scene.my_tool, k, v)
-        # Wykonujemy właściwy test
-        # print("Priority: %s" % o.get_job_priority())
         with mock.patch('cis_render.read_scene_settings.bpy') as MockBpy:
             
             mock_path ='test_abs_path'
@@ -52,9 +39,6 @@ def test_reading_frames_range():
             MockBpy.path.abspath.return_value = no_path
             with pytest.raises(FileNotFoundError):
                 assert o.get_scene_data() == no_path
-
-    # To tylko do weryfikacji że działa - żeby wypisały sie print-y
-    # assert(False)
 
 
 def test_reading_scene_name_and_path():
@@ -109,13 +93,10 @@ def test_reading_scene_name_and_path():
                 httpretty.Response(body='Created', status=200)
             ])
 
-    # Fail tests
-
     for i in [0, 1, 2]:
         with pytest.raises(requests.exceptions.RequestException):
             request_manager.post_job_data(_data)
 
-    # Success tests
     assert request_manager.post_job_data(_data).text == 'Created'
     assert httpretty.last_request().method == 'POST'
     assert httpretty.last_request().headers['content-type'] == 'application/json'
@@ -124,3 +105,46 @@ def test_reading_scene_name_and_path():
     httpretty.disable()
 
 
+def test_reading_frames_from_blender_data():
+    o = OBJECT_OT_read_scene_settings()
+    scene_frames = dict(
+        start = 15,
+        end = 20
+    )
+    with mock.patch.object(o, 'scene') as mock_scene:
+        with mock.patch('cis_render.read_scene_settings.bpy') as MockBpy:
+            MockBpy.data.scenes[o.scene.name].frame_start = scene_frames['start']
+            MockBpy.data.scenes[o.scene.name].frame_end = scene_frames['end']
+            assert o.get_job_frames() == scene_frames
+    
+
+def test_reading_frames_from_addon_properties():
+    o = OBJECT_OT_read_scene_settings()
+    with mock.patch.object(o, 'scene') as mock_scene:
+        for k,v in JobProperties.__annotations__.items():
+            setattr(mock_scene.my_tool, k, v)
+        mock_scene.my_tool.use_output_frames_setting = False
+        scene_frames = dict(
+            start = mock_scene.my_tool.frame_start,
+            end = mock_scene.my_tool.frame_end
+        )
+        assert o.get_job_frames() == scene_frames
+
+
+def test_execute_operator_reports_request_error():
+    o = OBJECT_OT_read_scene_settings()
+    request_manager = RequestManager()
+    with mock.patch.object(o, 'scene') as mock_scene:
+        for k,v in JobProperties.__annotations__.items():
+            setattr(mock_scene.my_tool, k, v)
+        request_manager.post_job_data = mock.MagicMock(side_effect=requests.exceptions.RequestException)
+        
+        o.read_output = mock.MagicMock()
+        o.read_materials = mock.MagicMock()
+        o.read_add_ons = mock.MagicMock()
+        o.read_eevee = mock.MagicMock()
+        o.read_cycles = mock.MagicMock()
+        o.read_workbench = mock.MagicMock()
+
+        o.execute(mock.MagicMock(scene=mock_scene))
+        assert o.reported

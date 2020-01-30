@@ -22,9 +22,9 @@ Moduł :mod:`read_scene_settings`
 .. automodule:: cis_render.read_scene_settings
    :members:
 
-Indices and tables
-==================
+#Indices and tables
+#==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+#* :ref:`genindex`
+#* :ref:`modindex`
+#* :ref:`search`

@@ -64,7 +64,12 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         self.scene = context.scene
 
         self.read_output()
-        self.read_materials()
+        try:
+            self.read_materials()
+        except FileNotFoundError as error:
+            self.report({'ERROR'}, "{} \nCould not register job".format(error))
+            config.logger.error(str(error), exc_info=True)
+            return {"CANCELLED"}
         self.read_add_ons()
         self.read_eevee()
         self.read_cycles()
@@ -83,14 +88,9 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             self.request_manager.post_job_data(payload)
         
         except ValueError as error:
-            self.report({'ERROR_INVALID_INPUT'}, "{} \nCould not register job!".format(error))
+            self.report({'ERROR_INVALID_INPUT'}, "{} \nCould not register job".format(error))
             config.logger.error("Could not register job", exc_info=True)
             return {"CANCELLED"}
-
-        # except FileNotFoundError as error:
-        #     self.report({'ERROR'}, "{} \nCould not register job".format(error))
-        #     config.logger.error("Could not register job", exc_info=True)
-        #     return {"CANCELLED"}
 
         except Exception as error:
             self.report({'ERROR'}, "{} \nCould not register job".format(error))
@@ -330,22 +330,18 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         """
         self.images = []
         for image in bpy.data.images:
-
             if image.users:
                 if image.name not in ['Render Result', 'Viewer Node']:
-                    try:
-                        abspath = bpy.path.abspath(image.filepath)
-                        if path.exists(abspath):
-                            if image.packed_file is None:
-                                image_data = dict(
-                                    name = image.name,
-                                    full_path = abspath)
-                                self.images.append(image_data)
-                        else:
-                            raise FileNotFoundError("File not found: {}".format(abspath))
-                    except FileNotFoundError as error:
-                        self.report({'ERROR'}, str(error))
-                        config.logger.error(str(error), exc_info=True)
+                    abspath = bpy.path.abspath(image.filepath)
+                    if path.exists(abspath):
+                        if image.packed_file is None:
+                            image_data = dict(
+                                name = image.name,
+                                full_path = abspath)
+                            self.images.append(image_data)
+                    else:
+                        raise FileNotFoundError("File not found: {}".format(abspath))
+
 
 
     def read_add_ons(self):
@@ -394,7 +390,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :type job_name: str
         :param frames: słownik z numerami pierwszej i ostatniej klatki do wyrenderowania, domyślnie None
         :type frames: dict, domyślnie None
-        :param anim_prepass: TODO, domyślnie False
+        :param anim_prepass: czy animcja ma być wstępnie przetworzona, domyślnie False
         :type anim_prepass: boolean
         :param tiles_info: słownik z wysokością i szerokością kafelków w pikselach, domyślnie None
         :type tiles_info: dict
@@ -402,7 +398,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :type output_format: str
         :param priority: priorytet zadania, domyślnie 0
         :type priority: int
-        :param sanity_check: TODO, domyślnie False
+        :param sanity_check: czy ma być wykonane sprawdzenie poprawności, domyślnie False
         :type sanity_check: boolean
         :return: słownik z danymi zadania
         :rtype: dict
@@ -418,6 +414,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             priority = priority,
             sanity_check = sanity_check
         )
+        data.update(tiles_info)
         return data
 
 
@@ -470,11 +467,11 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             tile_info = {                        
                 "tile_job": True,
                 "tiles": {
-                    # "padding": 10,
+                    "padding": 10,
                     "y": bpy.data.scenes[self.scene.name].render.tile_y, 
                     "x": bpy.data.scenes[self.scene.name].render.tile_x
                 },
-                # "tile_padding": 10
+                "tile_padding": 10
             }
 
 
@@ -482,11 +479,11 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             tile_info = {                        
                 "tile_job": True, 
                 "tiles": {
-                    # "padding": 10, 
+                    "padding": None, 
                     "y": self.scene.my_tool.tiles_y, 
                     "x": self.scene.my_tool.tiles_x
                 },
-                # "tile_padding": 10
+                "tile_padding": 10
             }
 
         return tile_info
@@ -577,9 +574,9 @@ class RequestManager():
         
         :param payload: słownik z danymi zadania przeznaczonymi do wysłania RenderDockowi
         :type payload: dict
-        :raises: RequestException: TODO
-        :return: TODO
-        :rtype: TODO
+        :raises: RequestException
+        :return: odpowiedź serwera
+        :rtype: dict
         """
         headers = {'content-type': 'application/json'}
         
