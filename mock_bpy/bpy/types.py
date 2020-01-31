@@ -1,9 +1,9 @@
 class Operator():
     def __init__(self):
-        self.reported = False
+        self.reported = {}
         print("INIT Operator")
-    def report(self, error, description):
-        self.reported = True
+    def report(self, type, message):
+        self.reported = type
 
 # Puste implementacje typów tak żeby nasze klasy potomne nie dziedziczyły po Mock
 

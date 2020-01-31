@@ -2,7 +2,7 @@ import pytest
 from unittest import mock
 import sys
 
-def test_unit():
+def template_test_unit():
     # W katalogu test mamy nasz minimalny moduł bpy. Dodajmy go do ścieżki PYTHONPATH
     sys.path.append('tests')
     # To na razie można spokojnie za-mockować

@@ -7,3 +7,4 @@ tests.diff
 unused.py
 unused1.py
 scene_settings.txt
+__pycache__

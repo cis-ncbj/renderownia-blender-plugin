@@ -588,5 +588,5 @@ class RequestManager():
             print(r.text)
         except requests.exceptions.RequestException as error:
             config.logger.error(str(error), exc_info=True)
-            raise requests.exceptions.RequestException
+            raise requests.exceptions.RequestException("Request error occured")
         return r
