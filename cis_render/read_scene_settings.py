@@ -64,19 +64,40 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         self.scene = context.scene
 
         self.read_output()
-        self.read_materials()
+        try:
+            self.read_materials()
+        except FileNotFoundError as error:
+            self.report({'ERROR'}, "{} \nCould not register job".format(error))
+            config.logger.error(str(error), exc_info=True)
+            return {"CANCELLED"}
         self.read_add_ons()
         self.read_eevee()
         self.read_cycles()
         self.read_workbench()
         self.save_as_json()
 
+        self.request_manager = RequestManager()
+
         try:
-            self.post_job_data(self.prepare_payload(self.get_job_name(), self.get_job_frames(), False, self.get_job_tiles_info()))
-        except (ValueError, FileNotFoundError):
-            self.report({'ERROR'}, "Could not register job")
+            payload = self.prepare_payload(
+                self.get_scene_data(),
+                self.get_job_name(), self.get_job_frames(), 
+                False, self.get_job_tiles_info(), 
+                self.get_job_file_format(), self.get_job_priority()
+                )
+            self.request_manager.post_job_data(payload)
+        
+        except ValueError as error:
+            self.report({'ERROR_INVALID_INPUT'}, "{} \nCould not register job".format(error))
             config.logger.error("Could not register job", exc_info=True)
             return {"CANCELLED"}
+
+        except Exception as error:
+            self.report({'ERROR'}, "{} \nCould not register job".format(error))
+            config.logger.error("Could not register job", exc_info=True)
+            return {"CANCELLED"}
+
+        self.report({'INFO'}, "Task submitted!")
         return {"FINISHED"}
 
 
@@ -309,23 +330,18 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         """
         self.images = []
         for image in bpy.data.images:
-
             if image.users:
                 if image.name not in ['Render Result', 'Viewer Node']:
-                    try:
-                        abspath = bpy.path.abspath(image.filepath)
-                        if path.exists(abspath):
-                            print(abspath)
-                            if image.packed_file is None:
-                                image_data = dict(
-                                    name = image.name,
-                                    full_path = abspath)
-                                self.images.append(image_data)
-                        else:
-                            raise FileNotFoundError("File not found: {}".format(abspath))
-                    except FileNotFoundError as error:
-                        self.report({'ERROR'}, str(error))
-                        config.logger.error(str(error), exc_info=True)
+                    abspath = bpy.path.abspath(image.filepath)
+                    if path.exists(abspath):
+                        if image.packed_file is None:
+                            image_data = dict(
+                                name = image.name,
+                                full_path = abspath)
+                            self.images.append(image_data)
+                    else:
+                        raise FileNotFoundError("File not found: {}".format(abspath))
+
 
 
     def read_add_ons(self):
@@ -364,8 +380,8 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             self.report({'ERROR'}, "Can't save to {} file".format(self.result_filename))
             config.logger.error("Can't save to {} file".format(self.result_filename), exc_info=True)
 
-
-    def prepare_payload(self, job_name="New Job", frames=None, anim_prepass=False, tiles_info=None,
+        
+    def prepare_payload(self, scene_data=None, job_name="New Job", frames=None, anim_prepass=False, tiles_info=None,
         output_format="JPEG", priority=0, sanity_check=False):
         """Przyjmuje jako argumenty komplet danych zadania i zwraca je zapisane w słowniku.
         Struktura słownika jest analogiczna do struktury sobiektu JSON, którego oczekuje RenderDock.
@@ -374,7 +390,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :type job_name: str
         :param frames: słownik z numerami pierwszej i ostatniej klatki do wyrenderowania, domyślnie None
         :type frames: dict, domyślnie None
-        :param anim_prepass: TODO, domyślnie False
+        :param anim_prepass: czy animcja ma być wstępnie przetworzona, domyślnie False
         :type anim_prepass: boolean
         :param tiles_info: słownik z wysokością i szerokością kafelków w pikselach, domyślnie None
         :type tiles_info: dict
@@ -382,15 +398,15 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :type output_format: str
         :param priority: priorytet zadania, domyślnie 0
         :type priority: int
-        :param sanity_check: TODO, domyślnie False
+        :param sanity_check: czy ma być wykonane sprawdzenie poprawności, domyślnie False
         :type sanity_check: boolean
         :return: słownik z danymi zadania
         :rtype: dict
         """
-
+        
         data = dict(
             textures = self.images,
-            scene = self.get_scene_data(),
+            scene = scene_data,
             name = job_name,
             frames = frames,
             anim_prepass = anim_prepass,
@@ -398,31 +414,8 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             priority = priority,
             sanity_check = sanity_check
         )
-        # if tiles_info:
-        #     data.update(self.get_job_tiles_info())
-        # else:
-        #     data['tile_job']=False
+        data.update(tiles_info)
         return data
-
-    
-    def post_job_data(self, payload):
-        """Wysyła dane zadania w formacie JSON RenderDockowi, uruchamiając proces rejestracji zadania.
-        
-        :param payload: słownik z danymi zadania przeznaczonymi do wysłania RenderDockowi
-        :type payload: dict
-        :raises: RequestException: TODO
-        :return: TODO
-        :rtype: TODO
-        """
-        print(json.dumps(payload))
-        headers = {'content-type': 'application/json'}
-
-        try:
-            r = requests.post(config.server, data=json.dumps(payload), headers=headers)
-            print(r.text)
-        except requests.exceptions.RequestException as error:
-            self.report({'ERROR'}, str(error))
-            config.logger.error(str(error), exc_info=True)
 
 
     def get_scene_data(self):
@@ -433,23 +426,18 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :rtype: dict
         """
         path = bpy.path.abspath(bpy.data.filepath)
+        print(path)
 
-        try:
-            if path in [None, '']:
-                raise FileNotFoundError("Scene file not found. Did you forget to save it?")
+        if path in [None, '']:
+            raise FileNotFoundError("Scene file not found. Did you forget to save it?")
 
-            scene_file_data = {                 # temporary
-                "name": self.scene.name,
-                "full_path": bpy.path.abspath(bpy.data.filepath)
-            } 
+        scene_file_data = {                 
+            "name": self.scene.name,
+            "full_path": path
+        } 
 
-            return scene_file_data
-            
-        except FileNotFoundError as error:
-            self.report({'ERROR'}, str(error))
-            config.logger.error("Scene file not found", exc_info=True)
+        return scene_file_data
 
-        
 
     def get_job_tiles_info(self):
         """Zwraca informacje o ustawieniach kafelków.
@@ -466,24 +454,18 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
 
         if bpy.data.scenes[self.scene.name].render.engine != 'CYCLES':
             tile_info = {                      
-                "tile_job": False, 
-                # "tiles": {
-                #     "padding": 10,
-                #     "y": 2, 
-                #     "x": 2
-                # },
-                # "tile_padding": 10
+                "tile_job": False
             }
 
         elif self.scene.my_tool.use_cycles_tiles_setting: 
             tile_info = {                        
                 "tile_job": True,
                 "tiles": {
-                    # "padding": 10,
+                    "padding": 10, # not used by Blender
                     "y": bpy.data.scenes[self.scene.name].render.tile_y, 
                     "x": bpy.data.scenes[self.scene.name].render.tile_x
                 },
-                # "tile_padding": 10
+                "tile_padding": 10
             }
 
 
@@ -491,15 +473,63 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             tile_info = {                        
                 "tile_job": True, 
                 "tiles": {
-                    # "padding": 10, 
+                    "padding": 10, 
                     "y": self.scene.my_tool.tiles_y, 
                     "x": self.scene.my_tool.tiles_x
                 },
-                # "tile_padding": 10
+                "tile_padding": 10
             }
 
         return tile_info
  
+
+    def get_job_file_format(self):
+        """Zwraca format plików wyjściowych, które mają być wygenerowane w wyniku renderowania. 
+        Zależnie od ustawienia wybranego przez użytkownika, metoda odczytuje i zwraca
+        format plików wyjściowych przypisanych do sceny albo podanych dla zadania.
+        
+        :return: Format plików wyjściowych zadania
+        :rtype: str
+        """
+
+        if self.scene.my_tool.use_output_format_setting:
+            return bpy.data.scenes[self.scene.name].render.image_settings.file_format.lower()
+
+        else:
+            return self.scene.my_tool.file_format.lower()
+
+    
+    def get_job_name(self):
+        """Zwraca nazwę zadania podaną przez użytkownika.
+        
+        :raises: ValueError: nazwa zadania nie została podana lub jest pusta
+        :return: Nazwa zadania
+        :rtype: str
+        """
+    
+        job_name = self.scene.my_tool.job_name
+
+        if job_name in [None, '']:
+            raise ValueError("Job name is empty")
+
+        return job_name
+            
+
+    def get_job_priority(self):
+        """Zwraca priorytet zadania podany przez użytkownika.
+        
+        :raises: ValueType: wartość piorytetu nie została podana
+        :return: wartość priorytetu zadania
+        :rtype: int
+        """
+
+        priority = self.scene.my_tool.priority
+
+        if priority is None:
+            raise ValueError("Priority not set")
+
+        return priority
+
 
     def get_job_frames(self):
         """Zwraca słownik zawierający numer pierwszej i ostatniej klatki 
@@ -510,7 +540,9 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         :return: słownik zawierający numery skajnych klatek zakresu
         :rtype: dict
         """
+        print(self.scene.my_tool.frame_start)
 
+        
         if self.scene.my_tool.use_output_frames_setting: 
             frames = dict(
             start = bpy.data.scenes[self.scene.name].frame_start,
@@ -525,59 +557,30 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             
         return frames
 
-    def get_job_file_format(self):
-        """Zwraca format plików wyjściowych, które mają być wygenerowane w wyniku renderowania. 
-        Zależnie od ustawienia wybranego przez użytkownika, metoda odczytuje i zwraca
-        format plików wyjściowych przypisanych do sceny albo podanych dla zadania.
+
+class RequestManager():
+    """
+    Odpowiada za komunikację z RenderDockiem.
+    """
+
+    def post_job_data(self, payload):
+        """Wysyła dane zadania w formacie JSON RenderDockowi, uruchamiając proces rejestracji zadania.
         
-        :return: Format plików wyjściowych zadania
-        :rtype: str
+        :param payload: słownik z danymi zadania przeznaczonymi do wysłania RenderDockowi
+        :type payload: dict
+        :raises: RequestException
+        :return: odpowiedź serwera
+        :rtype: dict
         """
-
-        if self.scene.my_tool.use_output_format_setting:
-            return bpy.data.scenes[self.scene.name].render.image_settings.file_format
-
-        else:
-            return self.scene.my_tool.file_format
-
-    
-    def get_job_name(self):
-        """Zwraca nazwę zadania podaną przez użytkownika.
+        headers = {'content-type': 'application/json'}
         
-        :raises: ValueError: nazwa zadania nie została podana lub jest pusta
-        :return: Nazwa zadania
-        :rtype: str
-        """
-        try:
-            job_name = self.scene.my_tool.job_name
-
-            if job_name in [None, '']:
-                raise ValueError("Job name is empty")
-
-        except ValueError as error:
-            self.report({'ERROR_INVALID_INPUT'}, str(error))
-            config.logger.error(error, exc_info=True)
-            raise ValueError(error)
-
-        return job_name
-            
-
-    def get_job_priority(self):
-        """Zwraca priorytet zadania podany przez użytkownika.
-        
-        :raises: ValueType: wartość piorytetu nie została podana
-        :return: wartość priorytetu zadania
-        :rtype: int
-        """
+        print(json.dumps(payload))
 
         try:
-            priority = self.scene.my_tool.priority
-
-            if priority is None:
-                raise ValueError("Priority not set")
-
-        except ValueError as error:
-            self.report({'ERROR_INVALID_INPUT'}, str(error))
+            r = requests.post(config.server, data=json.dumps(payload), headers=headers)
+            r.raise_for_status()
+            print(r.text)
+        except requests.exceptions.RequestException as error:
             config.logger.error(str(error), exc_info=True)
-
-        return priority
+            raise requests.exceptions.RequestException("Request error occured")
+        return r

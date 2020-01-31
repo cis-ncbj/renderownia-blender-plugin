@@ -1,4 +1,4 @@
-{
+example = {
    "textures":[
       {
          "name":"balcony_1k.hdr",
