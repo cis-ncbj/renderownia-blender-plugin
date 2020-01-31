@@ -190,7 +190,7 @@ def test_reading_cycles_settings_with_path_integrator():
     with mock.patch.object(o, 'scene') as mock_scene:
         with mock.patch('cis_render.read_scene_settings.bpy') as mock_bpy:
             
-            mock_scene_data = mock_bpy.data.scenes['scene']
+            mock_scene_data = mock_bpy.data.scenes[o.scene.name]
 
             mock_scene_data.display_settings.display_device = 'sRGB'
             mock_scene_data.view_settings.view_transform = 'Filmic'
@@ -201,13 +201,6 @@ def test_reading_cycles_settings_with_path_integrator():
             mock_scene_data.cycles.progressive = 'PATH'
             mock_scene_data.cycles.samples = 128
             mock_scene_data.cycles.preview_samples = 32
-            # mock_scene_data.cycles.diffuse_samples = 1.0
-            # mock_scene_data.cycles.glossy_samples = 1.0
-            # mock_scene_data.cycles.transmission_samples = 1.0
-            # mock_scene_data.cycles.ao_samples = 1.0
-            # mock_scene_data.cycles.mesh_light_samples = 1.0
-            # mock_scene_data.cycles.subsurface_samples = 1.0
-            # mock_scene_data.cycles.volume_samples = 1.0
             mock_scene_data.cycles.max_bounces = 12
             mock_scene_data.cycles.diffuse_bounces = 4
             mock_scene_data.cycles.glossy_bounces = 4
@@ -270,7 +263,7 @@ def test_reading_cycles_settings_with_branched_path_integrator():
     with mock.patch.object(o, 'scene') as mock_scene:
         with mock.patch('cis_render.read_scene_settings.bpy') as mock_bpy:
             
-            mock_scene_data = mock_bpy.data.scenes['scene']
+            mock_scene_data = mock_bpy.data.scenes[o.scene.name]
 
             mock_scene_data.display_settings.display_device = 'sRGB'
             mock_scene_data.view_settings.view_transform = 'Filmic'
@@ -353,3 +346,51 @@ def test_reading_cycles_settings_with_branched_path_integrator():
             assert o.cycles_settings == cycles_data
 
 
+def test_reading_tiles_data_when_there_is_none():
+    o = OBJECT_OT_read_scene_settings()
+    tile_info = {
+        "tile_job": False
+    }
+    with mock.patch.object(o, 'scene') as mock_scene:
+        with mock.patch('cis_render.read_scene_settings.bpy') as mock_bpy:
+            mock_bpy.data.scenes[o.scene.name].render.engine = 'EEVEE'
+            assert o.get_job_tiles_info() == tile_info
+    
+
+def test_reading_tiles_from_addon_properties():
+    o = OBJECT_OT_read_scene_settings()
+    with mock.patch.object(o, 'scene') as mock_scene:
+        with mock.patch('cis_render.read_scene_settings.bpy') as mock_bpy:
+            for k,v in JobProperties.__annotations__.items():
+                setattr(mock_scene.my_tool, k, v)
+                tile_info = {                        
+                    "tile_job": True, 
+                    "tiles": {
+                        "padding": 10, 
+                        "y": mock_scene.my_tool.tiles_y, 
+                        "x": mock_scene.my_tool.tiles_x
+                    },
+                    "tile_padding": 10
+                }
+            mock_bpy.data.scenes[o.scene.name].render.engine = 'CYCLES'
+            mock_scene.my_tool.use_cycles_tiles_setting = False
+            assert o.get_job_tiles_info() == tile_info
+
+
+def test_reading_tiles_from_blender_data():
+    o = OBJECT_OT_read_scene_settings()
+    tile_info = {                        
+        "tile_job": True, 
+        "tiles": {
+            "padding": 10, 
+            "y": 32, 
+            "x": 64
+        },
+        "tile_padding": 10
+    }
+    with mock.patch.object(o, 'scene') as mock_scene:
+        with mock.patch('cis_render.read_scene_settings.bpy') as mock_bpy:
+            mock_bpy.data.scenes[o.scene.name].render.engine = 'CYCLES'
+            mock_bpy.data.scenes[o.scene.name].render.tile_y = 32
+            mock_bpy.data.scenes[o.scene.name].render.tile_x = 64
+            assert o.get_job_tiles_info() == tile_info

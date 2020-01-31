@@ -454,20 +454,14 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
 
         if bpy.data.scenes[self.scene.name].render.engine != 'CYCLES':
             tile_info = {                      
-                "tile_job": False, 
-                # "tiles": {
-                #     "padding": 10,
-                #     "y": 2, 
-                #     "x": 2
-                # },
-                # "tile_padding": 10
+                "tile_job": False
             }
 
         elif self.scene.my_tool.use_cycles_tiles_setting: 
             tile_info = {                        
                 "tile_job": True,
                 "tiles": {
-                    "padding": 10,
+                    "padding": 10, # not used by Blender
                     "y": bpy.data.scenes[self.scene.name].render.tile_y, 
                     "x": bpy.data.scenes[self.scene.name].render.tile_x
                 },
@@ -479,7 +473,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             tile_info = {                        
                 "tile_job": True, 
                 "tiles": {
-                    "padding": None, 
+                    "padding": 10, 
                     "y": self.scene.my_tool.tiles_y, 
                     "x": self.scene.my_tool.tiles_x
                 },
