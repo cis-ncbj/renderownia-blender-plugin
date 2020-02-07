@@ -15,7 +15,7 @@ from cis_render import config
 def timeout_callback(request, uri, headers):
     raise requests.exceptions.ConnectTimeout('Connection timeout')
 
-def test_reading_frames_range():
+def test_reading_scene_name_and_path():
     o = OBJECT_OT_read_scene_settings()
     with mock.patch.object(o, 'scene') as mock_scene:
         with mock.patch('cis_render.read_scene_settings.bpy') as mock_bpy:
@@ -41,7 +41,7 @@ def test_reading_frames_range():
                 assert o.get_scene_data() == no_path
 
 
-def test_reading_scene_name_and_path():
+def test_posting_job_data():
     request_manager = RequestManager()
     httpretty.enable()
 
