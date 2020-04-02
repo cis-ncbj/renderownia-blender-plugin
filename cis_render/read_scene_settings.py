@@ -34,7 +34,7 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
     :type result_filename: str
     """
     bl_idname = 'object.read_scene_settings'
-    bl_label = 'Save all data for rendering'
+    bl_label = 'Register job'
     bl_options = {"REGISTER", "UNDO"}
 
     def __init__(self):
@@ -116,8 +116,6 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
             *   PASS_THROUGH -- przekaż dalej event
         :rtype: enum zawarty w {‘RUNNING_MODAL’, ‘CANCELLED’, ‘FINISHED’, ‘PASS_THROUGH’, ‘INTERFACE’}
         """
-
-        # INTERFACE -- obsługiwanie eventu bez wykonania operatora (kiedy operator powoduje tylko wyświetlenie elemetu interfejsu graficznego).
 
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
@@ -348,10 +346,13 @@ class OBJECT_OT_read_scene_settings(bpy.types.Operator):
         """Przypisuje do pola *add_ons* słownik zawierający listę zaintalowanych wtyczek:
         ich nazwy i numery wersji.
         """
-        # TODO
+
+        self.add_ons = []
         for mod in addon_utils.modules():
-            print(mod.bl_info.get('version'))
-            print(mod.bl_info.get('name'))
+            self.add_ons.append(dict(
+                version=mod.bl_info.get('version'), 
+                name=mod.bl_info.get('name')
+                ))
 
 
     def save_as_json(self):
